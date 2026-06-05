@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import db from "../models/index.model.js";
+import { sendPasswordResetEmail } from "../services/emailService.js";
 
 const { Usuario } = db;
 const { Op } = db.Sequelize;
@@ -368,13 +369,22 @@ export const forgotPassword = async (req, res) => {
 
     await user.save();
 
-    // TODO: Integrar aquí el envío de correo electrónico con nodemailer
-    // Ejemplo:
-    // await sendResetEmail(user.email, token);
+    try {
+      await sendPasswordResetEmail(user.email, token);
+    } catch (emailError) {
+      console.error("❌ Error al enviar el correo con nodemailer:", emailError);
+      // Restablecer campos en MySQL para no dejar llaves sueltas
+      user.passwordResetToken = null;
+      user.passwordResetExpires = null;
+      await user.save();
+      return res.status(500).json({
+        error: "Error al enviar el correo de recuperación.",
+      });
+    }
 
     return res.status(200).json({
-      message: "Se ha generado el token de recuperación de contraseña exitosamente.",
-      token, // TODO: Este token se removerá del JSON una vez se conecte el servicio de envío de correos
+      status: "success",
+      message: "Se ha enviado un enlace de recuperación a su correo electrónico.",
     });
   } catch (error) {
     console.error("❌ Error en forgotPassword:", error);
