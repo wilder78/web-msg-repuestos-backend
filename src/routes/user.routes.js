@@ -10,9 +10,11 @@ router.post("/login", userController.loginUser);
 router.post("/register", userController.createUser);
 router.get("/check-email/:email", userController.checkEmail);
 
-// --- Rutas de recuperación de contraseña (Públicas) ---
+// --- Rutas de recuperación de contraseña y verificación (Públicas) ---
 router.post("/forgot-password", userController.forgotPassword);
 router.post("/reset-password", userController.resetPassword);
+router.get("/verify-email", userController.verifyEmail);
+router.get("/verify-email/:token", userController.verifyEmail);
 
 // --- Rutas Protegidas (Requieren Token) ---
 router.use(verifyToken);

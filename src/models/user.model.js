@@ -81,6 +81,17 @@ export default (sequelize, DataTypes) => {
         allowNull: true,
         field: "password_reset_expires",
       },
+      verificationToken: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: "verification_token",
+      },
+      isActive: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: "is_active",
+      },
     },
     {
       tableName: "usuario",

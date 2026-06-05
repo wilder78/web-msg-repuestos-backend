@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import db from "../models/index.model.js";
-import { sendPasswordResetEmail } from "../services/emailService.js";
+import { sendPasswordResetEmail, sendVerificationEmail } from "../services/emailService.js";
 
 const { Usuario } = db;
 const { Op } = db.Sequelize;
@@ -60,6 +60,8 @@ export const createUser = async (req, res) => {
       }
     }
 
+    const tokenGenerado = crypto.randomBytes(20).toString("hex");
+
     // Instancia para validación de password en texto plano (RegEx del modelo)
     const userInstance = Usuario.build({
       nombreUsuario: nombreUsuarioTrimmed,
@@ -68,6 +70,8 @@ export const createUser = async (req, res) => {
       idEstado: idEstado ?? 1,
       idRol: idRol ?? 3,
       idCliente: finalIdCliente,
+      verificationToken: tokenGenerado,
+      isActive: false,
     });
 
     await userInstance.validate();
@@ -76,9 +80,16 @@ export const createUser = async (req, res) => {
     userInstance.passwordHash = await bcrypt.hash(password, 10);
     await userInstance.save();
 
+    try {
+      await sendVerificationEmail(userInstance.email, tokenGenerado);
+    } catch (emailError) {
+      console.error("❌ Error al enviar el correo de verificación:", emailError);
+      // Opcionalmente podemos continuar o informar, pero el usuario se guardó.
+      // Siguiendo la instrucción de responder:
+    }
+
     return res.status(201).json({
-      message: "Usuario creado exitosamente en MSG Repuestos",
-      data: sanitizeUser(userInstance),
+      message: "Registro exitoso. Por favor, revisa tu correo electrónico para activar tu cuenta.",
     });
   } catch (error) {
     if (error.name === "SequelizeValidationError") {
@@ -119,6 +130,10 @@ export const loginUser = async (req, res) => {
 
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
       return res.status(401).json({ error: "Credenciales incorrectas." });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({ message: "Tu cuenta no ha sido activada. Por favor, verifica tu correo electrónico." });
     }
 
     const jwtSecret = process.env.JWT_SECRET || "msg-repuestos-dev-secret";
@@ -432,6 +447,35 @@ export const resetPassword = async (req, res) => {
   }
 };
 
+// 10. Verificar correo (verifyEmail)
+export const verifyEmail = async (req, res) => {
+  try {
+    const tokenVal = req.params.token || req.query.token;
+
+    if (!tokenVal) {
+      return res.status(400).json({ error: "El token de verificación es obligatorio." });
+    }
+
+    const user = await Usuario.findOne({ where: { verificationToken: tokenVal } });
+
+    if (!user) {
+      return res.status(400).json({ error: "Token de verificación inválido o vencido." });
+    }
+
+    user.isActive = true;
+    user.verificationToken = null;
+    await user.save();
+
+    return res.status(200).json({
+      status: "success",
+      message: "Cuenta activada con éxito. Ya puedes iniciar sesión.",
+    });
+  } catch (error) {
+    console.error("❌ Error en verifyEmail:", error);
+    return res.status(500).json({ error: "Error interno al verificar la cuenta." });
+  }
+};
+
 const userController = {
   createUser,
   loginUser,
@@ -442,6 +486,7 @@ const userController = {
   checkEmail,
   forgotPassword,
   resetPassword,
+  verifyEmail,
 };
 
 export default userController;
