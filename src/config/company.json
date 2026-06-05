@@ -1,0 +1,11 @@
+{
+  "name": "MSG-Repuestos SAS",
+  "rut": "103457896",
+  "phone": "+57 300 000 0000",
+  "email": "contacto@msgrepuestos.com",
+  "address": "Calle Falsa 123, Ciudad, País",
+  "socialMedia": {
+    "instagram": "https://instagram.com/msgrepuestos",
+    "facebook": "https://facebook.com/msgrepuestos"
+  }
+}
