@@ -99,18 +99,13 @@ async function startServer() {
       console.log("Modelos verificados");
     }
 
-    const PORT = Number(process.env.PORT) || 8080;
-    const HOST = process.env.HOST || "0.0.0.0";
+    // Hostinger te asignará el puerto correcto automáticamente.
+    const PORT = process.env.PORT || 8080;
 
-    const server = app.listen(PORT, HOST, () => {
-      const networkUrls = Object.values(os.networkInterfaces())
-        .flat()
-        .filter((iface) => iface && iface.family === "IPv4" && !iface.internal)
-        .map((iface) => `http://${iface.address}:${PORT}`);
-
+    // EL CAMBIO CLAVE: Quitamos 'HOST' del app.listen
+    const server = app.listen(PORT, () => {
       console.log("Motor MSG iniciado satisfactoriamente");
-      console.log(`Local: http://localhost:${PORT}`);
-      networkUrls.forEach((url) => console.log(`Red:   ${url}`));
+      console.log(`Servidor corriendo en el puerto: ${PORT}`);
     });
 
     process.on("SIGTERM", () => {
@@ -127,5 +122,44 @@ async function startServer() {
     process.exit(1);
   }
 }
+
+// async function startServer() {
+//   try {
+//     await db.sequelize.authenticate();
+//     console.log("Conexion a MySQL exitosa (MSG Repuestos)");
+
+//     if (process.env.NODE_ENV === "development") {
+//       await db.sequelize.sync({ alter: false });
+//       console.log("Modelos verificados");
+//     }
+
+//     const PORT = Number(process.env.PORT) || 8080;
+//     const HOST = process.env.HOST || "0.0.0.0";
+
+//     const server = app.listen(PORT, HOST, () => {
+//       const networkUrls = Object.values(os.networkInterfaces())
+//         .flat()
+//         .filter((iface) => iface && iface.family === "IPv4" && !iface.internal)
+//         .map((iface) => `http://${iface.address}:${PORT}`);
+
+//       console.log("Motor MSG iniciado satisfactoriamente");
+//       console.log(`Local: http://localhost:${PORT}`);
+//       networkUrls.forEach((url) => console.log(`Red:   ${url}`));
+//     });
+
+//     process.on("SIGTERM", () => {
+//       server.close(async () => {
+//         await db.sequelize.close();
+//         process.exit(0);
+//       });
+//     });
+//   } catch (error) {
+//     console.error("Error critico:", error.message);
+//     console.error(
+//       `MySQL configurado en ${process.env.DB_HOST || "127.0.0.1"}:${process.env.DB_PORT || 3306}`,
+//     );
+//     process.exit(1);
+//   }
+// }
 
 startServer();
