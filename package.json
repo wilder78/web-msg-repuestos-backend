@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "echo \"No build step required\"",
     "dev": "node --watch ./src/app.js",
     "start": "node ./src/app.js"
   },
@@ -13,7 +14,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "bcryptjs": "^3.0.3",
+    "bcryptjs": "^2.4.3",
     "cloudinary": "^1.41.3",
     "colombia-data-social": "^1.0.1",
     "cors": "^2.8.6",
