@@ -82,6 +82,7 @@ router.use("/suppliers", supplierRoutes);
 router.use("/customers", customerRoutes);
 router.use("/credits", creditRoutes);
 router.use("/products", productRoutes);
+router.use("/repuestos", productRoutes);
 router.use("/inventory", inventoryRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/search", searchRoutes);

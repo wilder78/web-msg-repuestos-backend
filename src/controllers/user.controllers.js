@@ -178,6 +178,8 @@ export const loginUser = async (req, res) => {
       idEstado: user.idEstado,
       idRol: user.idRol,
       idCliente,
+      isActive: !!user.isActive,
+      is_active: !!user.isActive,
       ...(tipoCliente ? { tipoCliente } : {}),
     };
 

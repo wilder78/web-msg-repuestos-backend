@@ -89,6 +89,12 @@ export default (sequelize, DataTypes) => {
         defaultValue: 1,
         field: "id_estado",
       },
+      esNuevo: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+        field: "es_nuevo",
+      },
     },
     {
       tableName: "productos",

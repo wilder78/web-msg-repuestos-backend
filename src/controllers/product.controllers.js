@@ -185,7 +185,48 @@ const productController = {
   // 1. Obtener todos los productos
   getAllProducts: async (req, res = response) => {
     try {
-      const products = await db.Product.findAll({
+      const page = req.query.page ? parseInt(req.query.page, 10) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit, 10) : 12;
+      const offset = (page - 1) * limit;
+      
+      const { search, category, categoria, marca, precioMin, precioMax, soloNuevos } = req.query;
+      const whereConditions = { id_estado: 1 }; // Solo productos activos en la vista pública/catálogo
+
+      // 1. Buscador (search)
+      if (search) {
+        whereConditions[Op.or] = [
+          { nombre: { [Op.like]: `%${search}%` } },
+          { descripcion: { [Op.like]: `%${search}%` } },
+          { marca: { [Op.like]: `%${search}%` } },
+        ];
+      }
+
+      // 2. Categoría (soporta tanto category como categoria)
+      const categoryId = categoria || category;
+      if (categoryId && categoryId !== "all") {
+        whereConditions.id_categoria = parseInt(categoryId, 10);
+      }
+
+      // 3. Marca
+      if (marca && marca !== "all") {
+        whereConditions.marca = marca;
+      }
+
+      // 4. Rango de Precios
+      if (precioMin !== undefined && precioMax !== undefined && precioMin !== "" && precioMax !== "") {
+        whereConditions.precio_publico = { [Op.between]: [parseFloat(precioMin), parseFloat(precioMax)] };
+      } else if (precioMin !== undefined && precioMin !== "") {
+        whereConditions.precio_publico = { [Op.gte]: parseFloat(precioMin) };
+      } else if (precioMax !== undefined && precioMax !== "") {
+        whereConditions.precio_publico = { [Op.lte]: parseFloat(precioMax) };
+      }
+
+      // 5. Productos Nuevos (soloNuevos)
+      if (soloNuevos === "true" || soloNuevos === true) {
+        whereConditions.esNuevo = true;
+      }
+
+      const { count, rows } = await db.Product.findAndCountAll({
         attributes: [
           "id_producto",
           "referencia",
@@ -203,6 +244,7 @@ const productController = {
           "fecha_registro",
           "id_categoria",
           "id_estado",
+          "esNuevo",
         ],
         include: [
           {
@@ -211,9 +253,13 @@ const productController = {
             attributes: ["nombre_categoria"],
           },
         ],
+        where: whereConditions,
+        limit: limit,
+        offset: offset,
         order: [["id_producto", "ASC"]],
       });
-      const formattedProducts = products.map((prod) => {
+
+      const formattedProducts = rows.map((prod) => {
         const plain = prod.toJSON ? prod.toJSON() : prod;
         const stock = plain.stock_buen_estado ?? 0;
         
@@ -230,7 +276,12 @@ const productController = {
         };
       });
 
-      return res.status(200).json(formattedProducts);
+      return res.status(200).json({
+        products: formattedProducts,
+        totalItems: count,
+        totalPages: Math.ceil(count / limit),
+        currentPage: page
+      });
     } catch (error) {
       console.error("Error en getAllProducts:", error);
       return res.status(500).json({
@@ -395,6 +446,226 @@ const productController = {
     } catch (error) {
       console.error("Error al eliminar:", error);
       return res.status(500).json({ message: "Error al eliminar el producto" });
+    }
+  },
+
+  getAllProductsList: async (req, res = response) => {
+    try {
+      const products = await db.Product.findAll({
+        attributes: [
+          "id_producto",
+          "referencia",
+          "nombre",
+          "descripcion",
+          "marca",
+          "modelo",
+          "imagen_url",
+          "precio_compra",
+          "precio_publico",
+          "precio_mayorista",
+          "precio_minorista",
+          "stock_buen_estado",
+          "stock_defectuoso",
+          "fecha_registro",
+          "id_categoria",
+          "id_estado",
+          "esNuevo",
+        ],
+        include: [
+          {
+            model: db.Category,
+            as: "categoria",
+            attributes: ["nombre_categoria"],
+          },
+        ],
+        where: { id_estado: 1 },
+        order: [["nombre", "ASC"]],
+      });
+
+      const formattedProducts = products.map((prod) => {
+        const plain = prod.toJSON ? prod.toJSON() : prod;
+        const stock = plain.stock_buen_estado ?? 0;
+
+        let newName = plain.nombre;
+        if (plain.referencia) {
+          newName += ` (${plain.referencia})`;
+        }
+        newName += ` [Disponibles: ${stock}]`;
+
+        return {
+          ...plain,
+          nombre_original: plain.nombre,
+          nombre: newName
+        };
+      });
+
+      return res.status(200).json(formattedProducts);
+    } catch (error) {
+      console.error("Error en getAllProductsList:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Error al obtener lista completa de productos",
+        error: error.message,
+      });
+    }
+  },
+
+  getProductBrands: async (req, res = response) => {
+    try {
+      const brandsData = await db.Product.findAll({
+        attributes: [
+          [db.sequelize.fn("DISTINCT", db.sequelize.col("marca")), "marca"]
+        ],
+        where: { id_estado: 1 },
+        raw: true
+      });
+      const brandsList = brandsData.map(b => b.marca).filter(Boolean);
+      return res.status(200).json(brandsList);
+    } catch (error) {
+      console.error("Error en getProductBrands:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Error al obtener marcas de productos",
+        error: error.message
+      });
+    }
+  },
+
+  getProductLatest: async (req, res = response) => {
+    try {
+      const products = await db.Product.findAll({
+        attributes: [
+          "id_producto",
+          "referencia",
+          "nombre",
+          "descripcion",
+          "marca",
+          "modelo",
+          "imagen_url",
+          "precio_compra",
+          "precio_publico",
+          "precio_mayorista",
+          "precio_minorista",
+          "stock_buen_estado",
+          "stock_defectuoso",
+          "fecha_registro",
+          "id_categoria",
+          "id_estado",
+          "esNuevo",
+        ],
+        where: { id_estado: 1 },
+        limit: 10,
+        order: [["id_producto", "DESC"]],
+      });
+      return res.status(200).json(products);
+    } catch (error) {
+      console.error("Error en getProductLatest:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Error al obtener productos recientes",
+        error: error.message,
+      });
+    }
+  },
+
+  getProductHomeTopRepuestos: async (req, res = response) => {
+    try {
+      const products = await db.Product.findAll({
+        attributes: [
+          "id_producto",
+          "referencia",
+          "nombre",
+          "descripcion",
+          "marca",
+          "modelo",
+          "imagen_url",
+          "precio_compra",
+          "precio_publico",
+          "precio_mayorista",
+          "precio_minorista",
+          "stock_buen_estado",
+          "stock_defectuoso",
+          "fecha_registro",
+          "id_categoria",
+          "id_estado",
+          "esNuevo",
+        ],
+        include: [
+          {
+            model: db.Category,
+            as: "categoria",
+            attributes: ["nombre_categoria"],
+            where: {
+              nombre_categoria: {
+                [Op.or]: ["repuestos", "repuesto"]
+              }
+            }
+          }
+        ],
+        where: { id_estado: 1 },
+        limit: 10,
+        order: [["id_producto", "DESC"]],
+      });
+      return res.status(200).json(products);
+    } catch (error) {
+      console.error("Error en getProductHomeTopRepuestos:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Error al obtener repuestos populares para el home",
+        error: error.message,
+      });
+    }
+  },
+
+  getProductHomeTopAccesorios: async (req, res = response) => {
+    try {
+      const products = await db.Product.findAll({
+        attributes: [
+          "id_producto",
+          "referencia",
+          "nombre",
+          "descripcion",
+          "marca",
+          "modelo",
+          "imagen_url",
+          "precio_compra",
+          "precio_publico",
+          "precio_mayorista",
+          "precio_minorista",
+          "stock_buen_estado",
+          "stock_defectuoso",
+          "fecha_registro",
+          "id_categoria",
+          "id_estado",
+          "esNuevo",
+        ],
+        include: [
+          {
+            model: db.Category,
+            as: "categoria",
+            attributes: ["nombre_categoria"],
+            where: {
+              nombre_categoria: {
+                [Op.or]: [
+                  { [Op.like]: "%lujo%" },
+                  { [Op.like]: "%accesorio%" }
+                ]
+              }
+            }
+          }
+        ],
+        where: { id_estado: 1 },
+        limit: 10,
+        order: [["id_producto", "DESC"]],
+      });
+      return res.status(200).json(products);
+    } catch (error) {
+      console.error("Error en getProductHomeTopAccesorios:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Error al obtener accesorios populares para el home",
+        error: error.message,
+      });
     }
   },
 };
