@@ -41,6 +41,11 @@ import abonoRoutes from "./abono.routes.js";
 
 const router = Router();
 
+// Register routes that clients (role 4 or 7) need to access
+router.use("/customers", customerRoutes);
+router.use("/departments", departmentRoutes);
+router.use("/municipalities", municipalityRoutes);
+
 /**
  * ── RBAC Global ───────────────────────────────────────────────────────────────
  * blockClientes se ejecuta DESPUÉS de verifyToken (que va dentro de cada router
@@ -69,9 +74,6 @@ router.use("/role-permissions", rolePermissionRoutes);
 router.use("/tipo-documento", tipoDocumentoRoutes);
 router.use("/zonas", zonaRoutes);
 router.use("/categories", categoryRoutes);
-// NUEVO: Rutas Geográficas para MSG Repuestos
-router.use("/departments", departmentRoutes);
-router.use("/municipalities", municipalityRoutes);
 
 // Configuración Institucional
 router.use("/company", companyRoutes);
@@ -79,7 +81,6 @@ router.use("/company", companyRoutes);
 // 3. ENTIDADES DE NEGOCIO
 router.use("/employees", employeeRoutes);
 router.use("/suppliers", supplierRoutes);
-router.use("/customers", customerRoutes);
 router.use("/credits", creditRoutes);
 router.use("/products", productRoutes);
 router.use("/repuestos", productRoutes);

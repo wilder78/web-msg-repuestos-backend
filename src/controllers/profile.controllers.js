@@ -116,15 +116,17 @@ export const updateProfile = async (req, res) => {
       }
 
       if (nombre !== undefined) {
-        await user.update({
-          nombreUsuario: nombre.trim().substring(0, 50)
-        });
+        await user.update(
+          { nombreUsuario: nombre.trim().substring(0, 50) },
+          { fields: ["nombreUsuario"] }
+        );
       }
     } else {
       if (nombre !== undefined) {
-        await user.update({
-          nombreUsuario: nombre.trim().substring(0, 50)
-        });
+        await user.update(
+          { nombreUsuario: nombre.trim().substring(0, 50) },
+          { fields: ["nombreUsuario"] }
+        );
       }
     }
 

@@ -225,14 +225,18 @@ export const getUserById = async (req, res) => {
 // 5. Actualizar información
 export const updateUser = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: "ID de usuario inválido." });
+    }
+
     const { nombreUsuario, email, password, idEstado, idRol } = req.body;
 
     const user = await Usuario.findByPk(id);
     if (!user) return res.status(404).json({ error: "Usuario no encontrado." });
 
     // Protecciones de Usuario Master
-    if (Number(id) === 1) {
+    if (id === 1) {
       if (idEstado !== undefined && Number(idEstado) === 2) {
         return res
           .status(403)
@@ -264,20 +268,22 @@ export const updateUser = async (req, res) => {
         });
       }
 
-      const existingUserByName = await Usuario.findOne({
-        where: {
-          nombreUsuario: nombreUsuarioTrimmed,
-          idUsuario: { [Op.ne]: Number(id) },
-        },
-      });
+      if (nombreUsuarioTrimmed !== user.nombreUsuario) {
+        const existingUserByName = await Usuario.findOne({
+          where: {
+            nombreUsuario: nombreUsuarioTrimmed,
+            idUsuario: { [Op.ne]: id },
+          },
+        });
 
-      if (existingUserByName) {
-        return res
-          .status(409)
-          .json({ error: "El nombre de usuario ya está en uso por otro empleado." });
+        if (existingUserByName) {
+          return res
+            .status(409)
+            .json({ error: "El nombre de usuario ya está en uso por otro empleado." });
+        }
+
+        user.nombreUsuario = nombreUsuarioTrimmed;
       }
-
-      user.nombreUsuario = nombreUsuarioTrimmed;
     }
 
     if (email !== undefined) {
@@ -287,18 +293,20 @@ export const updateUser = async (req, res) => {
         return res.status(400).json({ error: "El email es obligatorio." });
       }
 
-      const existingUserByEmail = await Usuario.findOne({
-        where: {
-          email: normalizedEmail,
-          idUsuario: { [Op.ne]: Number(id) },
-        },
-      });
+      if (normalizedEmail !== user.email) {
+        const existingUserByEmail = await Usuario.findOne({
+          where: {
+            email: normalizedEmail,
+            idUsuario: { [Op.ne]: id },
+          },
+        });
 
-      if (existingUserByEmail) {
-        return res.status(409).json({ error: "El email ya está registrado." });
+        if (existingUserByEmail) {
+          return res.status(409).json({ error: "El email ya está registrado." });
+        }
+
+        user.email = normalizedEmail;
       }
-
-      user.email = normalizedEmail;
     }
 
     if (idEstado !== undefined) user.idEstado = idEstado;

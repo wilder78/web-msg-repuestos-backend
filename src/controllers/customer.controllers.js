@@ -7,6 +7,22 @@ const { Customer, TipoDocumento, Municipality, Department, Zona, Usuario } = db;
 const sanitizeCustomer = (customer) => {
   const customerJson = customer.toJSON ? customer.toJSON() : customer;
   const { id_zona, ...clean } = customerJson;
+  
+  if (customerJson.municipio) {
+    clean.id_municipio = customerJson.municipio.id;
+    clean.idMunicipio = customerJson.municipio.id;
+    clean.municipioId = customerJson.municipio.id;
+    
+    const dept = customerJson.municipio.departamento;
+    if (dept) {
+      clean.id_departamento = dept.id;
+      clean.idDepartamento = dept.id;
+    } else if (customerJson.municipio.departmentId) {
+      clean.id_departamento = customerJson.municipio.departmentId;
+      clean.idDepartamento = customerJson.municipio.departmentId;
+    }
+  }
+  
   return clean;
 };
 
@@ -55,12 +71,12 @@ const buildCustomerInclude = () => [
   {
     model: Municipality,
     as: "municipio",
-    attributes: ["nombre"],
+    attributes: ["id", "name", "departmentId"],
     include: [
       {
         model: Department,
         as: "departamento",
-        attributes: ["nombre"],
+        attributes: ["id", "name"],
       },
     ],
   },
@@ -425,11 +441,15 @@ const customerController = {
 
   // 5. Actualizar cliente
   updateCustomer: async (req, res = response) => {
-    const { id } = req.params;
     try {
+      const idNum = parseInt(req.params.id, 10);
+      if (isNaN(idNum)) {
+        return res.status(400).json({ status: "error", message: "ID de cliente inválido." });
+      }
+
       const { idCliente, fechaRegistro, idDepartamento, ...dataToUpdate } =
         req.body;
-      const currentCustomer = await Customer.findByPk(id);
+      const currentCustomer = await Customer.findByPk(idNum);
 
       if (!currentCustomer) {
         return res.status(404).json({
@@ -439,7 +459,41 @@ const customerController = {
       }
 
       const isMaster = Number(req.user?.idRol) === 1;
+      const isAdmin = Number(req.user?.idRol) === 2;
       const isClientRole = [4, 7].includes(Number(req.user?.idRol));
+
+      // Check if this customer is linked to any user
+      const linkedUser = await Usuario.findOne({ where: { idCliente: idNum } });
+
+      if (linkedUser && linkedUser.idUsuario !== req.user?.idUsuario) {
+        // If it is linked to another user, only Master/Admin can modify it
+        if (!isMaster && !isAdmin) {
+          return res.status(403).json({
+            status: "error",
+            message: "Este cliente ya tiene un usuario relacionado. No se permiten modificaciones.",
+          });
+        }
+      } else {
+        // If it is not linked to any user, and the current user is a client and does not have a linked client record:
+        if (!linkedUser && isClientRole && req.user?.idUsuario && !req.user?.idCliente) {
+          await Usuario.update(
+            { idCliente: idNum },
+            { where: { idUsuario: req.user.idUsuario } }
+          );
+        }
+      }
+
+      // If they are not Master/Admin, and they are trying to edit a customer that is NOT theirs
+      if (!isMaster && !isAdmin) {
+        const userClientMatch = Number(req.user?.idCliente) === idNum || (!req.user?.idCliente && (!linkedUser || linkedUser.idUsuario === req.user?.idUsuario));
+        if (!userClientMatch) {
+          return res.status(403).json({
+            status: "error",
+            message: "No tienes permisos para modificar los datos de otra cuenta.",
+          });
+        }
+      }
+
       const changesDocumentType =
         dataToUpdate.idTipoDocumento !== undefined &&
         Number(dataToUpdate.idTipoDocumento) !==
@@ -458,14 +512,6 @@ const customerController = {
           status: "error",
           message:
             "Solo el usuario Master puede modificar el tipo o número de documento.",
-        });
-      }
-
-      if (!isMaster && isClientRole && changesEmail) {
-        return res.status(403).json({
-          status: "error",
-          message:
-            "No tienes permisos para modificar el correo electronico de tu cuenta.",
         });
       }
 
@@ -490,29 +536,24 @@ const customerController = {
       }
 
       // Validación de duplicados (Compuesta AND para documento)
-      if (
-        dataToUpdate.numeroDocumento ||
-        dataToUpdate.idTipoDocumento ||
-        (dataToUpdate.email && dataToUpdate.email.trim() !== "")
-      ) {
-        const orConditions = [];
-        
-        // Revisamos el documento compuesto
-        if (dataToUpdate.numeroDocumento || dataToUpdate.idTipoDocumento) {
-          orConditions.push({
-            numeroDocumento: dataToUpdate.numeroDocumento ?? currentCustomer.numeroDocumento,
-            idTipoDocumento: dataToUpdate.idTipoDocumento ?? currentCustomer.idTipoDocumento
-          });
-        }
-        
-        if (dataToUpdate.email) {
-          orConditions.push({ email: dataToUpdate.email });
-        }
+      const orConditions = [];
+      
+      if (changesDocumentType || changesDocumentNumber) {
+        orConditions.push({
+          numeroDocumento: dataToUpdate.numeroDocumento ?? currentCustomer.numeroDocumento,
+          idTipoDocumento: dataToUpdate.idTipoDocumento ?? currentCustomer.idTipoDocumento
+        });
+      }
+      
+      if (changesEmail && dataToUpdate.email !== undefined) {
+        orConditions.push({ email: dataToUpdate.email });
+      }
 
+      if (orConditions.length > 0) {
         const duplicate = await Customer.findOne({
           where: {
             [Op.or]: orConditions,
-            idCliente: { [Op.ne]: id },
+            idCliente: { [Op.ne]: idNum },
           },
         });
 
@@ -525,11 +566,11 @@ const customerController = {
       }
 
       await Customer.update(dataToUpdate, {
-        where: { idCliente: id },
+        where: { idCliente: idNum },
       });
 
       // ✅ Ya no tratamos 0 rows como error — puede ser que los datos sean iguales
-      const updatedCustomer = await Customer.findByPk(id);
+      const updatedCustomer = await Customer.findByPk(idNum);
 
       if (!updatedCustomer) {
         return res.status(404).json({

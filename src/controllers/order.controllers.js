@@ -17,7 +17,7 @@ import { checkProductStockAndNotify } from "../utils/notification.utils.js";
  */
 
 const orderController = {};
-const DEFAULT_AUTONOMOUS_SELLER_EMPLOYEE_ID = 4;
+const DEFAULT_AUTONOMOUS_SELLER_EMPLOYEE_ID = 3;
 
 const buildPaymentStatus = (order) => {
   const totalNeto = Number(order.total_neto ?? order.totalNeto ?? 0);
@@ -81,6 +81,12 @@ const resolveEmployeeSellerId = async (sellerId, transaction) => {
     transaction,
   });
   if (empleadoPorUsuario) return empleadoPorUsuario.idEmpleado;
+
+  // Fallback: If default seller employee is not found, get the first available employee in database
+  if (id === DEFAULT_AUTONOMOUS_SELLER_EMPLOYEE_ID) {
+    const fallbackEmpleado = await db.Empleado.findOne({ transaction });
+    if (fallbackEmpleado) return fallbackEmpleado.idEmpleado;
+  }
 
   throw new Error(`El vendedor seleccionado no está vinculado a un empleado válido.`);
 };
