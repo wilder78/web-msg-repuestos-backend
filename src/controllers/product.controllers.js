@@ -12,6 +12,19 @@ const parseDateOnly = (value) => {
   return Number.isNaN(date.getTime()) ? null : value;
 };
 
+const cleanProductName = (name, reference = null) => {
+  if (!name) return "";
+  let cleaned = name;
+  cleaned = cleaned.replace(/\s*\[Disponibles:\s*\d+\]/gi, "");
+  if (reference) {
+    const escapedRef = reference.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const refRegex = new RegExp(`\\s*\\(${escapedRef}\\)`, 'gi');
+    cleaned = cleaned.replace(refRegex, "");
+  }
+  cleaned = cleaned.replace(/\s*\([A-Z0-9\-_]+\)/gi, "");
+  return cleaned.trim();
+};
+
 const getDateFilterValue = (query, keys) => {
   for (const key of keys) {
     if (query[key]) return query[key];
@@ -262,8 +275,9 @@ const productController = {
       const formattedProducts = rows.map((prod) => {
         const plain = prod.toJSON ? prod.toJSON() : prod;
         const stock = plain.stock_buen_estado ?? 0;
+        const cleanName = cleanProductName(plain.nombre, plain.referencia);
         
-        let newName = plain.nombre;
+        let newName = cleanName;
         if (plain.referencia) {
           newName += ` (${plain.referencia})`;
         }
@@ -271,7 +285,7 @@ const productController = {
         
         return {
           ...plain,
-          nombre_original: plain.nombre,
+          nombre_original: cleanName,
           nombre: newName
         };
       });
@@ -335,6 +349,10 @@ const productController = {
         ...rest
       } = req.body;
 
+      if (rest.nombre) {
+        rest.nombre = cleanProductName(rest.nombre, rest.referencia);
+      }
+
       const newProduct = await db.Product.create({
         ...rest,
         id_categoria: parseInt(id_categoria),
@@ -380,6 +398,10 @@ const productController = {
         fecha_registro,
         ...data
       } = req.body;
+
+      if (data.nombre) {
+        data.nombre = cleanProductName(data.nombre, data.referencia);
+      }
 
       const dataToUpdate = { ...data };
 
@@ -485,8 +507,9 @@ const productController = {
       const formattedProducts = products.map((prod) => {
         const plain = prod.toJSON ? prod.toJSON() : prod;
         const stock = plain.stock_buen_estado ?? 0;
+        const cleanName = cleanProductName(plain.nombre, plain.referencia);
 
-        let newName = plain.nombre;
+        let newName = cleanName;
         if (plain.referencia) {
           newName += ` (${plain.referencia})`;
         }
@@ -494,7 +517,7 @@ const productController = {
 
         return {
           ...plain,
-          nombre_original: plain.nombre,
+          nombre_original: cleanName,
           nombre: newName
         };
       });
