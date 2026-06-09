@@ -47,10 +47,30 @@ export const getProfile = async (req, res) => {
       profileData.municipio = "";
     }
 
+    let permisosList = [];
+    if (Number(user.idRol) === 1) {
+      permisosList = ["*"];
+    } else if (Number(user.idRol) !== 4 && Number(user.idRol) !== 7) {
+      const rolePermissions = await db.RolePermission.findAll({
+        where: { idRol: user.idRol },
+        include: [
+          {
+            model: db.Permission,
+            as: "permiso",
+            attributes: ["nombrePermiso"],
+          },
+        ],
+      });
+      permisosList = rolePermissions
+        .map(rp => rp.permiso?.nombrePermiso)
+        .filter(Boolean);
+    }
+
     return res.status(200).json({
       status: "success",
       userId,
       role: roleName,
+      permisos: permisosList,
       data: profileData
     });
   } catch (error) {

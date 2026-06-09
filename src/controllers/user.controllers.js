@@ -133,7 +133,19 @@ export const loginUser = async (req, res) => {
     }
 
     if (!user.isActive) {
-      return res.status(403).json({ message: "Tu cuenta no ha sido activada. Por favor, verifica tu correo electrónico." });
+      const tokenGenerado = crypto.randomBytes(20).toString("hex");
+      user.verificationToken = tokenGenerado;
+      await user.save();
+
+      try {
+        await sendVerificationEmail(user.email, tokenGenerado);
+      } catch (emailError) {
+        console.error("❌ Error al re-enviar el correo de verificación en login:", emailError);
+      }
+
+      return res.status(403).json({ 
+        message: "Tu cuenta no ha sido activada. Se ha enviado un nuevo enlace de activación a tu correo electrónico." 
+      });
     }
 
     const jwtSecret = process.env.JWT_SECRET || "msg-repuestos-dev-secret";
@@ -171,6 +183,25 @@ export const loginUser = async (req, res) => {
       }
     }
 
+    let permisosList = [];
+    if (Number(user.idRol) === 1) {
+      permisosList = ["*"];
+    } else if (Number(user.idRol) !== 4 && Number(user.idRol) !== 7) {
+      const rolePermissions = await db.RolePermission.findAll({
+        where: { idRol: user.idRol },
+        include: [
+          {
+            model: db.Permission,
+            as: "permiso",
+            attributes: ["nombrePermiso"],
+          },
+        ],
+      });
+      permisosList = rolePermissions
+        .map(rp => rp.permiso?.nombrePermiso)
+        .filter(Boolean);
+    }
+
     const userPayload = {
       idUsuario: user.idUsuario,
       nombreUsuario: user.nombreUsuario,
@@ -180,6 +211,7 @@ export const loginUser = async (req, res) => {
       idCliente,
       isActive: !!user.isActive,
       is_active: !!user.isActive,
+      permisos: permisosList,
       ...(tipoCliente ? { tipoCliente } : {}),
     };
 
