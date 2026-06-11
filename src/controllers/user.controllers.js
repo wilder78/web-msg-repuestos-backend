@@ -14,6 +14,21 @@ const sanitizeUser = (user) => {
   return clean;
 };
 
+const getRequestOrigin = (req) => {
+  const origin = req.get('origin');
+  if (origin) return origin;
+  const referer = req.get('referer');
+  if (referer) {
+    try {
+      const url = new URL(referer);
+      return url.origin;
+    } catch {
+      // ignore
+    }
+  }
+  return process.env.FRONTEND_URL || "http://localhost:5173";
+};
+
 // 1. Crear un nuevo usuario
 export const createUser = async (req, res) => {
   try {
@@ -81,7 +96,7 @@ export const createUser = async (req, res) => {
     await userInstance.save();
 
     try {
-      await sendVerificationEmail(userInstance.email, tokenGenerado);
+      await sendVerificationEmail(userInstance.email, tokenGenerado, getRequestOrigin(req));
     } catch (emailError) {
       console.error("❌ Error al enviar el correo de verificación:", emailError);
       // Opcionalmente podemos continuar o informar, pero el usuario se guardó.
@@ -138,7 +153,7 @@ export const loginUser = async (req, res) => {
       await user.save();
 
       try {
-        await sendVerificationEmail(user.email, tokenGenerado);
+        await sendVerificationEmail(user.email, tokenGenerado, getRequestOrigin(req));
       } catch (emailError) {
         console.error("❌ Error al re-enviar el correo de verificación en login:", emailError);
       }
@@ -427,7 +442,7 @@ export const forgotPassword = async (req, res) => {
     await user.save();
 
     try {
-      await sendPasswordResetEmail(user.email, token);
+      await sendPasswordResetEmail(user.email, token, getRequestOrigin(req));
     } catch (emailError) {
       console.error("❌ Error al enviar el correo con nodemailer:", emailError);
       // Restablecer campos en MySQL para no dejar llaves sueltas

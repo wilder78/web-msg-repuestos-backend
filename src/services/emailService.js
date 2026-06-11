@@ -13,8 +13,8 @@ const transporter = nodemailer.createTransport({
  * @param {string} toEmail - Dirección de correo del destinatario.
  * @param {string} resetToken - Token para restablecer la contraseña.
  */
-export const sendPasswordResetEmail = async (toEmail, resetToken) => {
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+export const sendPasswordResetEmail = async (toEmail, resetToken, origin = null) => {
+  const frontendUrl = origin || process.env.FRONTEND_URL || "http://localhost:5173";
   const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
   const htmlContent = `
@@ -154,8 +154,8 @@ export const sendPasswordResetEmail = async (toEmail, resetToken) => {
  * @param {string} toEmail - Dirección de correo del destinatario.
  * @param {string} verificationToken - Token para verificar el correo.
  */
-export const sendVerificationEmail = async (toEmail, verificationToken) => {
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+export const sendVerificationEmail = async (toEmail, verificationToken, origin = null) => {
+  const frontendUrl = origin || process.env.FRONTEND_URL || "http://localhost:5173";
   const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
 
   const htmlContent = `
