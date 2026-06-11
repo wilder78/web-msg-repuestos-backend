@@ -45,6 +45,8 @@ export const getProfile = async (req, res) => {
       profileData.telefono = user.empleado.telefono || "";
       profileData.direccion = "";
       profileData.municipio = "";
+      profileData.idTipoDocumento = user.empleado.idTipoDocumento || "";
+      profileData.numeroDocumento = user.empleado.numeroDocumento || "";
     }
 
     let permisosList = [];
@@ -86,7 +88,7 @@ export const updateProfile = async (req, res) => {
       return res.status(401).json({ error: "Usuario no autenticado." });
     }
 
-    const { nombre, telefono, direccion, municipioId } = req.body;
+    const { nombre, telefono, direccion, municipioId, idTipoDocumento, id_tipo_documento, numeroDocumento, numero_documento } = req.body;
 
     const user = await Usuario.findByPk(userId, {
       include: [
@@ -129,9 +131,14 @@ export const updateProfile = async (req, res) => {
           }
         }
 
+        const tipoDoc = idTipoDocumento ?? id_tipo_documento;
+        const numDoc = numeroDocumento ?? numero_documento;
+
         await user.empleado.update({
           ...(nombre !== undefined && { nombre: finalNombre, apellido: finalApellido }),
-          ...(telefono !== undefined && { telefono })
+          ...(telefono !== undefined && { telefono }),
+          ...(tipoDoc !== undefined && { idTipoDocumento: tipoDoc }),
+          ...(numDoc !== undefined && { numeroDocumento: numDoc })
         });
       }
 

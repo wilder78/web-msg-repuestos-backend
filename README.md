@@ -14,6 +14,7 @@ API REST para la gestión integral de inventarios, cartera, créditos, clientes 
 - **bcrypt** — hash de contraseñas
 - **Cloudinary** + multer — almacenamiento de imágenes
 - **PDFKit** — generación de reportes PDF
+- **Nodemailer** — servicio de envío de correos electrónicos (verificación y recuperación)
 - **dotenv** — variables de entorno
 
 ---
@@ -61,6 +62,10 @@ DB_NAME=msg_repuestos
 VITE_CLOUDINARY_CLOUD_NAME=tu_cloud_name
 VITE_CLOUDINARY_API_KEY=tu_api_key
 VITE_CLOUDINARY_API_SECRET=tu_api_secret
+
+# Servidor de Correo (Nodemailer / Gmail SMTP)
+EMAIL_USER=tu_correo_gmail@gmail.com
+EMAIL_PASS=tu_contraseña_aplicacion_gmail
 ```
 
 > La base de datos `DB_NAME` debe existir previamente en MySQL. El esquema de tablas se sincroniza automáticamente al iniciar el servidor en modo `development`.
@@ -93,7 +98,7 @@ msg-repuestos-backend/
 │   ├── middleware/           # Autenticación JWT, multer
 │   ├── models/              # Definiciones de Sequelize (28 modelos)
 │   ├── routes/              # Definición de rutas Express
-│   ├── services/            # Servicios externos (imagen, PDF)
+│   ├── services/            # Servicios externos (imagen, PDF, emailService)
 │   └── utils/               # Utilidades (notificaciones)
 ├── .env                     # Variables de entorno
 ├── package.json
@@ -107,12 +112,17 @@ msg-repuestos-backend/
 Todas las rutas parten del prefijo `/api`.
 
 ### Seguridad y Accesos
-| Recurso              | Ruta                     |
-| -------------------- | ------------------------ |
-| Usuarios             | `/api/users`             |
-| Roles                | `/api/roles`             |
-| Permisos             | `/api/permissions`       |
-| Roles-Permisos       | `/api/role-permissions`  |
+| Recurso              | Ruta                     | Descripción / Funcionalidad Adicional |
+| -------------------- | ------------------------ | ------------------------------------- |
+| Usuarios             | `/api/users`             | Gestión de usuarios base. |
+| Registro             | `POST /api/users`        | Registro. Genera token de verificación de email. |
+| Verificación Correo  | `GET /api/users/verify-email` | Activa la cuenta con el token enviado por correo. |
+| Recuperación Clave   | `POST /api/users/forgot-password` | Envía enlace temporal para restablecer la contraseña. |
+| Restablecer Clave    | `POST /api/users/reset-password` | Actualiza la clave utilizando un reset token válido. |
+| Perfil               | `GET /api/users/profile` | Retorna los datos y vinculación del perfil autenticado. |
+| Roles                | `/api/roles`             | Gestión de perfiles y roles. |
+| Permisos             | `/api/permissions`       | Lista granular de permisos del sistema. |
+| Roles-Permisos       | `/api/role-permissions`  | Cruce de permisos asociados a roles. |
 
 ### Maestros y Referencias
 | Recurso              | Ruta                     |
@@ -125,17 +135,20 @@ Todas las rutas parten del prefijo `/api`.
 | Empresa              | `/api/company`           |
 
 ### Entidades de Negocio
-| Recurso              | Ruta                     |
-| -------------------- | ------------------------ |
-| Empleados            | `/api/employees`         |
-| Proveedores          | `/api/suppliers`         |
-| Clientes             | `/api/customers`         |
-| Créditos             | `/api/credits`           |
-| Productos            | `/api/products`          |
-| Inventario           | `/api/inventory`         |
-| Dashboard            | `/api/dashboard`         |
-| Búsqueda             | `/api/search`            |
-| Notificaciones       | `/api/notifications`     |
+| Recurso              | Ruta                     | Descripción / Funcionalidad Adicional |
+| -------------------- | ------------------------ | ------------------------------------- |
+| Empleados            | `/api/employees`         | Fichas del personal interno. |
+| Proveedores          | `/api/suppliers`         | Socios de reabastecimiento. |
+| Clientes             | `/api/customers`         | Directorio de clientes vinculados. |
+| Créditos             | `/api/credits`           | Estado y cupo de cartera asignada. |
+| Productos            | `/api/products`          | **Catálogo con filtros avanzados y paginación.**<br>Soporta: `page`, `limit`, `search`, `categoria`, `marca`, `precioMin`, `precioMax`, `soloNuevos`. |
+| Productos Total      | `GET /api/products/all-list` | Lista plana no paginada de todos los productos (Modales del Dashboard). |
+| Marcas Únicas        | `GET /api/products/brands` | Retorna marcas de productos activos (Sidebar dinámico). |
+| Feeds de Home        | `GET /api/products/latest`<br>`GET /api/products/home/top-repuestos`<br>`GET /api/products/home/top-accesorios` | Endpoints aislados para los carruseles de la página principal (Home). |
+| Inventario           | `/api/inventory`         | Estado actual del stock físico y mermas. |
+| Dashboard            | `/api/dashboard`         | Estadísticas consolidadas e indicadores operativos. |
+| Búsqueda             | `/api/search`            | Módulo centralizado de búsquedas. |
+| Notificaciones       | `/api/notifications`     | Avisos e historial del sistema. |
 
 ### Transacciones
 | Recurso              | Ruta                     |
@@ -158,3 +171,4 @@ Todas las rutas parten del prefijo `/api`.
 ## Licencia
 
 ISC
+

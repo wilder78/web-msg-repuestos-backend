@@ -211,6 +211,8 @@ const productController = {
           { nombre: { [Op.like]: `%${search}%` } },
           { descripcion: { [Op.like]: `%${search}%` } },
           { marca: { [Op.like]: `%${search}%` } },
+          { referencia: { [Op.like]: `%${search}%` } },
+          { '$categoria.nombre_categoria$': { [Op.like]: `%${search}%` } },
         ];
       }
 
