@@ -54,6 +54,21 @@ export const createUser = async (req, res) => {
       where: { email: email.toLowerCase().trim() },
     });
     if (existingUser) {
+      if (!existingUser.isActive) {
+        const tokenGenerado = crypto.randomBytes(20).toString("hex");
+        existingUser.verificationToken = tokenGenerado;
+        await existingUser.save();
+
+        try {
+          await sendVerificationEmail(existingUser.email, tokenGenerado, getRequestOrigin(req));
+        } catch (emailError) {
+          console.error("❌ Error al re-enviar el correo de verificación en registro duplicado:", emailError);
+        }
+
+        return res.status(200).json({
+          message: "Este correo ya está registrado pero no ha sido activado. Se ha enviado un nuevo enlace de activación a tu correo electrónico.",
+        });
+      }
       return res.status(409).json({ error: "El email ya está registrado." });
     }
 
@@ -413,7 +428,10 @@ export const checkEmail = async (req, res) => {
     const { email } = req.params;
     if (!email) return res.status(400).json({ error: "Email requerido." });
     const user = await Usuario.findOne({ where: { email: email.toLowerCase().trim() } });
-    return res.json({ disponible: !user });
+    if (user) {
+      return res.json({ disponible: false, isActive: !!user.isActive });
+    }
+    return res.json({ disponible: true });
   } catch (error) {
     return res.status(500).json({ error: "Error al verificar email." });
   }
