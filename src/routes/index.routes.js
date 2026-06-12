@@ -2,6 +2,7 @@ import { Router } from "express";
 import { blockClientes } from "../middleware/auth.middleware.js";
 
 // --- Importaciones de Seguridad y Usuarios ---
+import authRoutes from "./auth.routes.js";
 import userRoutes from "./user.routes.js";
 import rolRoutes from "./rol.routes.js";
 import permissionRoutes from "./permission.routes.js";
@@ -42,6 +43,7 @@ import abonoRoutes from "./abono.routes.js";
 const router = Router();
 
 // Register routes that clients (role 4 or 7) need to access
+router.use("/auth", authRoutes);
 router.use("/customers", customerRoutes);
 router.use("/departments", departmentRoutes);
 router.use("/municipalities", municipalityRoutes);
