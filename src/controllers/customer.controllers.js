@@ -624,6 +624,123 @@ const customerController = {
       });
     }
   },
+
+  getCustomerPurchaseHistory: async (req, res = response) => {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        return res.status(400).json({
+          status: "error",
+          message: "El ID del cliente es obligatorio."
+        });
+      }
+
+      const rawHistory = await db.sequelize.query(
+        `
+        SELECT 
+          p.id_pedido AS idPedido,
+          v.id_venta AS idVenta,
+          p.fecha_pedido AS fecha,
+          p.total_neto AS total,
+          p.tipo_pago AS tipoPago,
+          ep.nombre_estado AS estadoPedido,
+          ep.color_hex AS estadoColor,
+          dp.id_detalle_pedido AS idDetallePedido,
+          dp.cantidad_solicitada AS cantidad,
+          dp.precio_venta AS precioVenta,
+          dp.subtotal_linea AS subtotal,
+          prod.nombre AS productoNombre,
+          prod.referencia AS productoReferencia
+        FROM pedidos p
+        LEFT JOIN ventas v ON p.id_pedido = v.id_pedido
+        INNER JOIN estados_pedido ep ON p.id_estado_pedido = ep.id_estado_pedido
+        INNER JOIN detalle_pedido dp ON p.id_pedido = dp.id_pedido
+        INNER JOIN productos prod ON dp.id_producto = prod.id_producto
+        WHERE p.id_cliente = :idCliente
+        ORDER BY p.fecha_pedido DESC, p.id_pedido DESC
+        `,
+        {
+          replacements: { idCliente: id },
+          type: db.Sequelize.QueryTypes.SELECT,
+        }
+      );
+
+      const purchasesMap = {};
+      for (const row of rawHistory) {
+        if (!purchasesMap[row.idPedido]) {
+          purchasesMap[row.idPedido] = {
+            idPedido: row.idPedido,
+            idVenta: row.idVenta || null,
+            fecha: row.fecha,
+            total: parseFloat(row.total || 0),
+            tipoPago: row.tipoPago,
+            estadoPedido: row.estadoPedido,
+            estadoColor: row.estadoColor,
+            productos: [],
+          };
+        }
+        purchasesMap[row.idPedido].productos.push({
+          idDetallePedido: row.idDetallePedido,
+          productoNombre: row.productoNombre,
+          productoReferencia: row.productoReferencia,
+          cantidad: Number(row.cantidad),
+          precioVenta: parseFloat(row.precioVenta || 0),
+          subtotal: parseFloat(row.subtotal || 0),
+        });
+      }
+
+      return res.json({
+        status: "success",
+        data: Object.values(purchasesMap),
+      });
+    } catch (error) {
+      return res.status(500).json({
+        status: "error",
+        message: "Error al obtener el historial de compras.",
+        error: error.message,
+      });
+    }
+  },
+
+  getCustomersWithPurchases: async (req, res = response) => {
+    try {
+      const query = `
+        SELECT 
+          c.id_cliente AS idCliente,
+          c.razon_social AS razonSocial,
+          c.numero_documento AS numeroDocumento,
+          c.tipo_cliente AS tipoCliente,
+          c.telefono,
+          c.email,
+          COUNT(p.id_pedido) AS totalPedidos,
+          COALESCE(SUM(p.total_neto), 0) AS totalComprado
+        FROM clientes c
+        INNER JOIN pedidos p ON c.id_cliente = p.id_cliente
+        GROUP BY c.id_cliente, c.razon_social, c.numero_documento, c.tipo_cliente, c.telefono, c.email
+        ORDER BY totalComprado DESC
+      `;
+      const results = await db.sequelize.query(query, {
+        type: db.Sequelize.QueryTypes.SELECT,
+      });
+
+      return res.status(200).json({
+        status: "success",
+        data: results.map(row => ({
+          ...row,
+          totalPedidos: Number(row.totalPedidos || 0),
+          totalComprado: parseFloat(row.totalComprado || 0)
+        }))
+      });
+    } catch (error) {
+      console.error("Error al obtener reporte de compras de clientes:", error);
+      return res.status(500).json({
+        status: "error",
+        message: "Error interno al generar el reporte de compras de clientes.",
+        error: error.message,
+      });
+    }
+  },
 };
 
 export default customerController;

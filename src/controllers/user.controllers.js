@@ -162,6 +162,10 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ error: "Credenciales incorrectas." });
     }
 
+    if (Number(user.idEstado) === 2) {
+      return res.status(403).json({ error: "Tu cuenta se encuentra inactiva. Comunícate con el administrador." });
+    }
+
     if (!user.isActive) {
       const tokenGenerado = crypto.randomBytes(20).toString("hex");
       user.verificationToken = tokenGenerado;
