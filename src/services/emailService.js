@@ -154,9 +154,15 @@ export const sendPasswordResetEmail = async (toEmail, resetToken, origin = null)
  * @param {string} toEmail - Dirección de correo del destinatario.
  * @param {string} verificationToken - Token para verificar el correo.
  */
-export const sendVerificationEmail = async (toEmail, verificationToken, origin = null) => {
-  const frontendUrl = origin || process.env.FRONTEND_URL || "http://localhost:5173";
-  const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
+export const sendVerificationEmail = async (toEmail, verificationToken, origin = null, source = null) => {
+  // El enlace de verificación SIEMPRE apunta al backend. 
+  // Esto previene errores 404 en el frontend por problemas de enrutamiento (React Router / BrowserHistory) en servidores como Apache/LiteSpeed.
+  // El backend activará la cuenta y luego redireccionará al usuario a la página de login del frontend o abrirá la app móvil.
+  const backendUrl = process.env.BACKEND_URL || "https://chocolate-badger-127197.hostingersite.com";
+  let verificationLink = `${backendUrl}/api/users/verify-email?token=${verificationToken}`;
+  if (source === "app") {
+    verificationLink += "&source=app";
+  }
 
   const htmlContent = `
     <!DOCTYPE html>

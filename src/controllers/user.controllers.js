@@ -98,7 +98,7 @@ export const createUser = async (req, res) => {
       email: email.toLowerCase().trim(),
       passwordHash: password,
       idEstado: idEstado ?? 1,
-      idRol: idRol ?? 3,
+      idRol: idRol ?? 4,
       idCliente: finalIdCliente,
       verificationToken: tokenGenerado,
       isActive: false,
@@ -111,11 +111,10 @@ export const createUser = async (req, res) => {
     await userInstance.save();
 
     try {
-      await sendVerificationEmail(userInstance.email, tokenGenerado, getRequestOrigin(req));
+      const source = req.query.source || req.body.source || null;
+      await sendVerificationEmail(userInstance.email, tokenGenerado, getRequestOrigin(req), source);
     } catch (emailError) {
       console.error("❌ Error al enviar el correo de verificación:", emailError);
-      // Opcionalmente podemos continuar o informar, pero el usuario se guardó.
-      // Siguiendo la instrucción de responder:
     }
 
     return res.status(201).json({
@@ -172,7 +171,8 @@ export const loginUser = async (req, res) => {
       await user.save();
 
       try {
-        await sendVerificationEmail(user.email, tokenGenerado, getRequestOrigin(req));
+        const source = req.query.source || req.body.source || null;
+        await sendVerificationEmail(user.email, tokenGenerado, getRequestOrigin(req), source);
       } catch (emailError) {
         console.error("❌ Error al re-enviar el correo de verificación en login:", emailError);
       }
@@ -528,30 +528,41 @@ export const resetPassword = async (req, res) => {
 
 // 10. Verificar correo (verifyEmail)
 export const verifyEmail = async (req, res) => {
+  const frontendUrl = process.env.FRONTEND_URL || "https://darkslateblue-capybara-838942.hostingersite.com";
+  const isApp = req.query.source === "app";
+  
   try {
     const tokenVal = req.params.token || req.query.token;
 
     if (!tokenVal) {
-      return res.status(400).json({ error: "El token de verificación es obligatorio." });
+      const errorMsg = "El token de verificación es obligatorio.";
+      return isApp 
+        ? res.redirect(`msgrepuestos://verify?error=${encodeURIComponent(errorMsg)}`)
+        : res.redirect(`${frontendUrl}/?error=${encodeURIComponent(errorMsg)}`);
     }
 
     const user = await Usuario.findOne({ where: { verificationToken: tokenVal } });
 
     if (!user) {
-      return res.status(400).json({ error: "Token de verificación inválido o vencido." });
+      const errorMsg = "Token de verificación inválido o vencido.";
+      return isApp 
+        ? res.redirect(`msgrepuestos://verify?error=${encodeURIComponent(errorMsg)}`)
+        : res.redirect(`${frontendUrl}/?error=${encodeURIComponent(errorMsg)}`);
     }
 
     user.isActive = true;
     user.verificationToken = null;
     await user.save();
 
-    return res.status(200).json({
-      status: "success",
-      message: "Cuenta activada con éxito. Ya puedes iniciar sesión.",
-    });
+    return isApp 
+      ? res.redirect("msgrepuestos://verify?activated=true")
+      : res.redirect(`${frontendUrl}/?login=true&activated=true`);
   } catch (error) {
     console.error("❌ Error en verifyEmail:", error);
-    return res.status(500).json({ error: "Error interno al verificar la cuenta." });
+    const errorMsg = "Error interno al verificar la cuenta.";
+    return isApp 
+      ? res.redirect(`msgrepuestos://verify?error=${encodeURIComponent(errorMsg)}`)
+      : res.redirect(`${frontendUrl}/?error=${encodeURIComponent(errorMsg)}`);
   }
 };
 
