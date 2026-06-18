@@ -76,11 +76,13 @@ const returnController = {
         );
 
         // Incrementar stock físico
-        await db.Product.increment("stock_buen_estado", {
-          by: cantidad,
-          where: { id_producto: item.idProducto || item.id_producto },
-          transaction: t,
-        });
+        await db.sequelize.query(
+          "UPDATE productos SET stock_buen_estado = stock_buen_estado + ? WHERE id_producto = ?",
+          {
+            replacements: [cantidad, item.idProducto || item.id_producto],
+            transaction: t,
+          }
+        );
 
         processedDetailsForPDF.push({
           idProducto: item.idProducto || item.id_producto,
@@ -155,11 +157,13 @@ const returnController = {
       // Revertir Stock
       if (devolucion.detalles) {
         for (const item of devolucion.detalles) {
-          await db.Product.decrement("stock_buen_estado", {
-            by: item.cantidadDevuelta,
-            where: { id_producto: item.idProducto },
-            transaction: t,
-          });
+          await db.sequelize.query(
+            "UPDATE productos SET stock_buen_estado = stock_buen_estado - ? WHERE id_producto = ?",
+            {
+              replacements: [item.cantidadDevuelta, item.idProducto],
+              transaction: t,
+            }
+          );
         }
       }
 
