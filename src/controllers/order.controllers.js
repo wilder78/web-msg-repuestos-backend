@@ -145,10 +145,46 @@ orderController.getAllOrders = async (req, res) => {
           include: [{ model: db.Product, as: "producto" }],
         },
         { model: db.Sale, as: "venta" },
+        { model: db.estadoPedido, as: "estado" },
       ],
       order: [["id_pedido", "DESC"]],
     });
-    return res.json(pedidos);
+
+    const enrichedPedidos = pedidos.map((pedido) => {
+      const plainOrder = pedido.toJSON ? pedido.toJSON() : pedido;
+      const statusId = Number(plainOrder.id_estado_pedido ?? plainOrder.idEstado ?? 1);
+      
+      let stock_disponible = true;
+      const missing_stock_products = [];
+
+      // Solo evaluamos viabilidad de stock si está en estado 1 (Cotización / En Proceso)
+      if (statusId === 1) {
+        (plainOrder.detalles || []).forEach((detalle) => {
+          const prod = detalle.producto;
+          if (prod) {
+            const requested = Number(detalle.cantidad_solicitada || 1);
+            const available = Number(prod.stock_buen_estado || 0);
+            if (available < requested) {
+              stock_disponible = false;
+              missing_stock_products.push({
+                id_producto: prod.idProducto || prod.id_producto,
+                nombre: prod.nombre,
+                solicitado: requested,
+                disponible: available
+              });
+            }
+          }
+        });
+      }
+
+      return {
+        ...plainOrder,
+        stock_disponible,
+        missing_stock_products
+      };
+    });
+
+    return res.json(enrichedPedidos);
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -213,7 +249,38 @@ orderController.getMyOrderHistory = async (req, res) => {
       order: [["id_pedido", "DESC"]],
     });
 
-    return res.json(pedidos.map(serializeOrderHistory));
+    const enriched = pedidos.map(serializeOrderHistory).map((plainOrder) => {
+      const statusId = Number(plainOrder.id_estado_pedido ?? plainOrder.idEstado ?? 1);
+      let stock_disponible = true;
+      const missing_stock_products = [];
+
+      if (statusId === 1) {
+        (plainOrder.detalles || []).forEach((detalle) => {
+          const prod = detalle.producto;
+          if (prod) {
+            const requested = Number(detalle.cantidad_solicitada || 1);
+            const available = Number(prod.stock_buen_estado || 0);
+            if (available < requested) {
+              stock_disponible = false;
+              missing_stock_products.push({
+                id_producto: prod.idProducto || prod.id_producto,
+                nombre: prod.nombre,
+                solicitado: requested,
+                disponible: available
+              });
+            }
+          }
+        });
+      }
+
+      return {
+        ...plainOrder,
+        stock_disponible,
+        missing_stock_products
+      };
+    });
+
+    return res.json(enriched);
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -485,6 +552,14 @@ orderController.updateOrder = async (req, res) => {
     const estadoNuevo = req.body.id_estado_pedido !== undefined
       ? Number(req.body.id_estado_pedido)
       : estadoAnterior;
+
+    if (req.body.id_estado_pedido !== undefined && estadoNuevo !== estadoAnterior && estadoNuevo <= estadoAnterior) {
+      await t.rollback();
+      return res.status(400).json({
+        error: "Operación inválida. No es posible revertir el pedido a un estado anterior."
+      });
+    }
+
     const tipoPago = req.body.tipo_pago || pedido.tipo_pago || "";
 
     const updatableFields = [
@@ -666,6 +741,23 @@ orderController.updateOrder = async (req, res) => {
     return res.json({ success: true, message: "Pedido actualizado correctamente.", data: updatedPedido });
   } catch (error) {
     if (t && !t.finished) await t.rollback();
+    console.error("Error in updateOrder:", error);
+    if (error.message && error.message.includes("Stock insuficiente")) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    return res.status(500).json({ success: false, error: error.message, stack: error.stack });
+  }
+};
+
+orderController.getPendingCount = async (req, res) => {
+  try {
+    const total = await db.Order.count({
+      where: {
+        id_estado_pedido: 1
+      }
+    });
+    return res.json({ success: true, total });
+  } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
 };

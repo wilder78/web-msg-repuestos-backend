@@ -15,6 +15,9 @@ router.get("/", orderController.getAllOrders);
 // Obtener historial de pedidos según el usuario autenticado
 router.get("/history/me", orderController.getMyOrderHistory);
 
+// Obtener el conteo de pedidos pendientes
+router.get("/pending-count", orderController.getPendingCount);
+
 // Obtener un pedido específico por ID
 router.get("/:id", orderController.getOrderById);
 

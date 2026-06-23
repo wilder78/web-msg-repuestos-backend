@@ -31,9 +31,21 @@ const getRequestOrigin = (req) => {
 
 // 1. Crear un nuevo usuario
 export const createUser = async (req, res) => {
+  let transaction;
   try {
-    const { nombreUsuario, email, password, idEstado, idRol, idCliente } =
-      req.body;
+    const { 
+      nombreUsuario, 
+      email, 
+      password, 
+      idEstado, 
+      idRol, 
+      idCliente,
+      idTipoDocumento,
+      numeroDocumento,
+      direccion,
+      telefono,
+      municipioId
+    } = req.body;
 
     if (!nombreUsuario || !email || !password) {
       return res.status(400).json({
@@ -49,15 +61,22 @@ export const createUser = async (req, res) => {
       });
     }
 
+    const emailNormalized = email.toLowerCase().trim();
+
+    // Iniciar transacción de Sequelize
+    transaction = await db.sequelize.transaction();
+
     // Verificar si el email ya existe en la base de datos
     const existingUser = await Usuario.findOne({
-      where: { email: email.toLowerCase().trim() },
+      where: { email: emailNormalized },
+      transaction,
     });
     if (existingUser) {
       if (!existingUser.isActive) {
         const tokenGenerado = crypto.randomBytes(20).toString("hex");
         existingUser.verificationToken = tokenGenerado;
-        await existingUser.save();
+        await existingUser.save({ transaction });
+        await transaction.commit();
 
         try {
           await sendVerificationEmail(existingUser.email, tokenGenerado, getRequestOrigin(req));
@@ -69,24 +88,93 @@ export const createUser = async (req, res) => {
           message: "Este correo ya está registrado pero no ha sido activado. Se ha enviado un nuevo enlace de activación a tu correo electrónico.",
         });
       }
+      await transaction.rollback();
       return res.status(409).json({ error: "El email ya está registrado." });
     }
 
     // Verificar si el nombreUsuario ya existe en la base de datos
     const existingUserByName = await Usuario.findOne({
       where: { nombreUsuario: nombreUsuarioTrimmed },
+      transaction,
     });
     if (existingUserByName) {
+      await transaction.rollback();
       return res
         .status(409)
         .json({ error: "El nombre de usuario ya está registrado." });
     }
 
     let finalIdCliente = idCliente || null;
-    if (!finalIdCliente && email) {
-      const customerMatch = await db.Customer.findOne({ where: { email: email.toLowerCase().trim() } });
-      if (customerMatch) {
-        finalIdCliente = customerMatch.idCliente;
+
+    if (numeroDocumento && idTipoDocumento) {
+      if (!direccion || !telefono) {
+        await transaction.rollback();
+        return res.status(400).json({
+          error: "Faltan campos del cliente obligatorios (direccion, telefono)."
+        });
+      }
+
+      // Verificar si el cliente ya existe por tipo y número de documento
+      const existingCustomer = await db.Customer.findOne({
+        where: {
+          idTipoDocumento,
+          numeroDocumento: numeroDocumento.trim()
+        },
+        transaction
+      });
+
+      if (existingCustomer) {
+        const existingEmail = (existingCustomer.email || "").toLowerCase().trim();
+        if (existingEmail && existingEmail !== emailNormalized) {
+          await transaction.rollback();
+          return res.status(400).json({
+            error: "El número de documento ya está registrado con otro correo electrónico. Por favor, comunícate con soporte o con el administrador."
+          });
+        }
+        finalIdCliente = existingCustomer.idCliente;
+        if (!existingEmail) {
+          existingCustomer.email = emailNormalized;
+          await existingCustomer.save({ transaction });
+        }
+      } else {
+        // Verificar si el correo ya existe en otro cliente
+        const existingCustomerByEmail = await db.Customer.findOne({
+          where: { email: emailNormalized },
+          transaction
+        });
+
+        if (existingCustomerByEmail) {
+          await transaction.rollback();
+          return res.status(409).json({
+            error: "El correo electrónico ya está registrado para otro cliente en el sistema."
+          });
+        }
+
+        // Crear nuevo cliente
+        const newCustomer = await db.Customer.create({
+          idTipoDocumento,
+          numeroDocumento: numeroDocumento.trim(),
+          razonSocial: nombreUsuarioTrimmed,
+          direccion: direccion.trim(),
+          telefono: telefono.trim(),
+          email: emailNormalized,
+          idEstado: 1,
+          idZona: 1, // Default ID zona
+          tipoCliente: "Consumidor final",
+          municipioId: municipioId ? parseInt(municipioId, 10) : null
+        }, { transaction });
+
+        finalIdCliente = newCustomer.idCliente;
+      }
+    } else {
+      if (emailNormalized) {
+        const customerMatch = await db.Customer.findOne({ 
+          where: { email: emailNormalized },
+          transaction
+        });
+        if (customerMatch) {
+          finalIdCliente = customerMatch.idCliente;
+        }
       }
     }
 
@@ -95,7 +183,7 @@ export const createUser = async (req, res) => {
     // Instancia para validación de password en texto plano (RegEx del modelo)
     const userInstance = Usuario.build({
       nombreUsuario: nombreUsuarioTrimmed,
-      email: email.toLowerCase().trim(),
+      email: emailNormalized,
       passwordHash: password,
       idEstado: idEstado ?? 1,
       idRol: idRol ?? 4,
@@ -108,7 +196,9 @@ export const createUser = async (req, res) => {
 
     // Hasheo post-validación
     userInstance.passwordHash = await bcrypt.hash(password, 10);
-    await userInstance.save();
+    await userInstance.save({ transaction });
+
+    await transaction.commit();
 
     try {
       const source = req.query.source || req.body.source || null;
@@ -121,6 +211,13 @@ export const createUser = async (req, res) => {
       message: "Registro exitoso. Por favor, revisa tu correo electrónico para activar tu cuenta.",
     });
   } catch (error) {
+    if (transaction) {
+      try {
+        await transaction.rollback();
+      } catch (err) {
+        console.error("❌ Error al realizar rollback:", err);
+      }
+    }
     if (error.name === "SequelizeValidationError") {
       return res.status(400).json({ error: error.errors[0].message });
     }
@@ -441,6 +538,28 @@ export const checkEmail = async (req, res) => {
   }
 };
 
+// 7.5. Verificar disponibilidad de documento
+export const checkDocument = async (req, res) => {
+  try {
+    const { idTipoDocumento, numeroDocumento } = req.query;
+    if (!idTipoDocumento || !numeroDocumento) {
+      return res.status(400).json({ error: "idTipoDocumento y numeroDocumento requeridos." });
+    }
+    const customer = await db.Customer.findOne({
+      where: {
+        idTipoDocumento: parseInt(idTipoDocumento, 10),
+        numeroDocumento: numeroDocumento.trim()
+      }
+    });
+    if (customer) {
+      return res.json({ disponible: false, razonSocial: customer.razonSocial });
+    }
+    return res.json({ disponible: true });
+  } catch (error) {
+    return res.status(500).json({ error: "Error al verificar el documento." });
+  }
+};
+
 // 8. Recuperación de contraseña (forgotPassword)
 export const forgotPassword = async (req, res) => {
   try {
@@ -574,6 +693,7 @@ const userController = {
   updateUser,
   deleteUser,
   checkEmail,
+  checkDocument,
   forgotPassword,
   resetPassword,
   verifyEmail,

@@ -387,11 +387,7 @@ const customerController = {
       }
 
       if (sessionUser) {
-        const userEmail = normalizeEmail(sessionUser.email);
-        const shouldLinkCustomer =
-          Boolean(sessionEmail) && Boolean(userEmail) && userEmail === sessionEmail;
-
-        if (shouldLinkCustomer) {
+        if (!sessionUser.idCliente) {
           sessionUser.idCliente = newCustomer.idCliente;
           await sessionUser.save({ transaction });
         }

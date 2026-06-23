@@ -115,24 +115,25 @@ Todas las rutas parten del prefijo `/api`.
 | Recurso              | Ruta                     | Descripción / Funcionalidad Adicional |
 | -------------------- | ------------------------ | ------------------------------------- |
 | Usuarios             | `/api/users`             | Gestión de usuarios base. |
-| Registro             | `POST /api/users`        | Registro. Genera token de verificación de email. |
+| Registro             | `POST /api/users`        | Registro. Genera token de verificación de email y vincula información geográfica (`municipioId`). |
 | Verificación Correo  | `GET /api/users/verify-email` | Activa la cuenta con el token enviado por correo. |
 | Recuperación Clave   | `POST /api/users/forgot-password` | Envía enlace temporal para restablecer la contraseña. |
 | Restablecer Clave    | `POST /api/users/reset-password` | Actualiza la clave utilizando un reset token válido. |
+| Disponibilidad Doc   | `GET /api/users/check-document` | Verifica en tiempo real si un número de documento ya está registrado (Público). |
 | Perfil               | `GET /api/users/profile` | Retorna los datos y vinculación del perfil autenticado. |
 | Roles                | `/api/roles`             | Gestión de perfiles y roles. |
 | Permisos             | `/api/permissions`       | Lista granular de permisos del sistema. |
 | Roles-Permisos       | `/api/role-permissions`  | Cruce de permisos asociados a roles. |
 
 ### Maestros y Referencias
-| Recurso              | Ruta                     |
-| -------------------- | ------------------------ |
-| Tipo Documento       | `/api/tipo-documento`    |
-| Zonas                | `/api/zonas`             |
-| Categorías           | `/api/categories`        |
-| Departamentos        | `/api/departments`       |
-| Municipios           | `/api/municipalities`    |
-| Empresa              | `/api/company`           |
+| Recurso              | Ruta                     | Descripción / Funcionalidad Adicional |
+| -------------------- | ------------------------ | ------------------------------------- |
+| Tipo Documento       | `/api/tipo-documento`    | **GET / público** para uso en el selector del formulario de registro y carrito. |
+| Zonas                | `/api/zonas`             | |
+| Categorías           | `/api/categories`        | |
+| Departamentos        | `/api/departments`       | Público (Usado en geolocalización) |
+| Municipios           | `/api/municipalities`    | Público (Usado en geolocalización) |
+| Empresa              | `/api/company`           | |
 
 ### Entidades de Negocio
 | Recurso              | Ruta                     | Descripción / Funcionalidad Adicional |

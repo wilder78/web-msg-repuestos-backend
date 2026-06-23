@@ -9,6 +9,7 @@ const router = Router();
 router.post("/login", userController.loginUser);
 router.post("/register", userController.createUser);
 router.get("/check-email/:email", userController.checkEmail);
+router.get("/check-document", userController.checkDocument);
 
 // --- Rutas de recuperación de contraseña y verificación (Públicas) ---
 router.post("/forgot-password", userController.forgotPassword);
