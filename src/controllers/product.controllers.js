@@ -205,6 +205,15 @@ const productController = {
       const { search, category, categoria, marca, precioMin, precioMax, soloNuevos } = req.query;
       const whereConditions = { id_estado: 1 }; // Solo productos activos en la vista pública/catálogo
 
+      // Obtener los IDs de los últimos 20 productos registrados para el flag esNuevo dinámico
+      const latest20Products = await db.Product.findAll({
+        attributes: ["id_producto"],
+        where: { id_estado: 1 },
+        limit: 20,
+        order: [["id_producto", "DESC"]],
+      });
+      const latest20Ids = latest20Products.map((p) => p.id_producto);
+
       // 1. Buscador (search)
       if (search) {
         whereConditions[Op.or] = [
@@ -238,7 +247,7 @@ const productController = {
 
       // 5. Productos Nuevos (soloNuevos)
       if (soloNuevos === "true" || soloNuevos === true) {
-        whereConditions.esNuevo = true;
+        whereConditions.id_producto = { [Op.in]: latest20Ids };
       }
 
       const { count, rows } = await db.Product.findAndCountAll({
@@ -287,6 +296,7 @@ const productController = {
         
         return {
           ...plain,
+          esNuevo: latest20Ids.includes(plain.id_producto),
           nombre_original: cleanName,
           nombre: newName
         };
@@ -579,7 +589,7 @@ const productController = {
           "esNuevo",
         ],
         where: { id_estado: 1 },
-        limit: 10,
+        limit: 20,
         order: [["id_producto", "DESC"]],
       });
       return res.status(200).json(products);
