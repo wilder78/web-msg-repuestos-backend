@@ -72,6 +72,122 @@ app.get("/api/health", (req, res) => {
 
 app.use("/api", indexRoutes);
 
+app.get("/reset-password", (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Restablecer contraseña - MSG Repuestos</title>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        body {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          background-color: #f8fafc;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          margin: 0;
+          padding: 20px;
+          color: #334155;
+        }
+        .container {
+          background: #ffffff;
+          max-width: 420px;
+          width: 100%;
+          border-radius: 20px;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+          padding: 40px 32px;
+          text-align: center;
+          box-sizing: border-box;
+        }
+        .icon-wrapper {
+          width: 72px;
+          height: 72px;
+          background: linear-gradient(135deg, #EF4444, #F97316);
+          border-radius: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 24px;
+          box-shadow: 0 8px 16px -4px rgba(239, 68, 68, 0.4);
+        }
+        .icon-wrapper svg {
+          width: 36px;
+          height: 36px;
+          fill: none;
+          stroke: white;
+          stroke-width: 2;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        h1 {
+          font-size: 22px;
+          font-weight: 700;
+          color: #0f172a;
+          margin: 0 0 16px 0;
+          letter-spacing: -0.02em;
+        }
+        p {
+          font-size: 15px;
+          line-height: 1.6;
+          color: #64748b;
+          margin: 0 0 32px 0;
+        }
+        .store-badges {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          background: #0f172a;
+          color: #ffffff;
+          font-weight: 600;
+          font-size: 15px;
+          text-decoration: none;
+          padding: 14px 24px;
+          border-radius: 14px;
+          width: 100%;
+          box-sizing: border-box;
+          transition: all 0.2s ease;
+        }
+        .btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.2);
+          background: #1e293b;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="icon-wrapper">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+        </div>
+        <h1>Acción requerida en la app</h1>
+        <p>Para proteger tu cuenta, el restablecimiento de contraseña solo puede realizarse directamente desde la aplicación oficial de <b>MSG Repuestos</b>.</p>
+        <p style="font-size: 13px; margin-top: -16px; margin-bottom: 24px; color: #94a3b8;">
+          Si ya la tienes instalada, abre este correo desde tu dispositivo móvil.
+        </p>
+        <div class="store-badges">
+          <a href="#" class="btn" onclick="alert('Busca MSG Repuestos en Google Play Store.'); return false;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            Abrir en Play Store
+          </a>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
 app.use((req, res) => {
   res.status(404).json({
     error: "Ruta no encontrada",
