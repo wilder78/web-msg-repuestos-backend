@@ -53,11 +53,11 @@ export const createUser = async (req, res) => {
       });
     }
 
-    // Validar que nombreUsuario solo contenga letras y espacios
+    // Validar que nombreUsuario solo contenga letras, números y espacios
     const nombreUsuarioTrimmed = nombreUsuario.trim();
-    if (!/^[a-zA-Z\s]+$/.test(nombreUsuarioTrimmed)) {
+    if (!/^[a-zA-Z0-9\s]+$/.test(nombreUsuarioTrimmed)) {
       return res.status(400).json({
-        error: "El nombre de usuario solo puede contener letras y espacios.",
+        error: "El nombre de usuario solo puede contener letras, números y espacios.",
       });
     }
 
@@ -425,9 +425,9 @@ export const updateUser = async (req, res) => {
         return res.status(400).json({ error: "El nombre de usuario es obligatorio." });
       }
 
-      if (!/^[a-zA-Z\s]+$/.test(nombreUsuarioTrimmed)) {
+      if (!/^[a-zA-Z0-9\s]+$/.test(nombreUsuarioTrimmed)) {
         return res.status(400).json({
-          error: "El nombre de usuario solo puede contener letras y espacios.",
+          error: "El nombre de usuario solo puede contener letras, números y espacios.",
         });
       }
 
